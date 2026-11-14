@@ -65,6 +65,7 @@ def build():
     }
     feed = {
         "updated": int(time.time()),
+        "mt5":     bool(champs.get("mt5") or new.get("mt5") or grave.get("mt5")),
         "rounds":  rounds,
         "totals":  {k: totals(v) for k, v in rounds.items()},
         "accounts": {"CHAMPS": acct(champs), "ROUND 1": acct(new), "ROUND 2": acct(new),
@@ -75,6 +76,22 @@ def build():
     return feed
 
 
+def git_push():
+    """If this folder is a git repo, commit + push feed.js so the live site updates by itself."""
+    import subprocess
+    d = os.path.dirname(OUT)
+    if not os.path.isdir(os.path.join(d, ".git")):
+        return
+    try:
+        subprocess.run(["git", "-C", d, "add", "feed.js"], capture_output=True)
+        subprocess.run(["git", "-C", d, "commit", "-m", "live feed " + time.strftime("%H:%M:%S")], capture_output=True)
+        r = subprocess.run(["git", "-C", d, "push", "-q"], capture_output=True, text=True)
+        if r.returncode == 0:
+            print("   pushed to GitHub")
+    except Exception as e:
+        print("   push skipped:", e)
+
+
 if __name__ == "__main__":
     once = "--once" in sys.argv
     while True:
@@ -82,6 +99,7 @@ if __name__ == "__main__":
             f = build()
             n = sum(len(v) for v in f["rounds"].values())
             print(time.strftime("%H:%M:%S"), "feed.js written -", n, "bots")
+            git_push()
         except Exception as e:
             print("exporter error:", e, "(is PIPS open?)")
         if once:
